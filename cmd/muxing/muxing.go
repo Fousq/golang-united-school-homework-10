@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -21,28 +22,31 @@ main function reads host/port from env just for an example, flavor it following 
 func Start(host string, port int) {
 	router := mux.NewRouter()
 
-	router.HandleFunc("/bad/", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/bad", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}).Methods(http.MethodGet)
 
 	router.HandleFunc("/name/{param}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		param := vars["param"]
-		fmt.Fprintf(w, "Hello, %s", param)
+		fmt.Fprintf(w, "Hello, %s!", param)
 	}).Methods(http.MethodGet)
 
 	router.HandleFunc("/data", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "I got message %s", r.Body)
-	})
+		reqBody, err := io.ReadAll(r.Body)
+		if err == nil {
+			fmt.Fprintf(w, "I got message:\n%s", string(reqBody))
+		}
+	}).Methods(http.MethodPost)
 
 	router.HandleFunc("/headers", func(w http.ResponseWriter, r *http.Request) {
 		a, errA := strconv.Atoi(r.Header.Get("a"))
 		b, errB := strconv.Atoi(r.Header.Get("b"))
 		if errA == nil && errB == nil {
 			sum := a + b
-			w.Header().Add("a + b", strconv.Itoa(sum))
+			w.Header().Set("a+b", strconv.Itoa(sum))
 		}
-	})
+	}).Methods(http.MethodPost)
 
 	log.Println(fmt.Printf("Starting API server on %s:%d\n", host, port))
 	if err := http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), router); err != nil {
